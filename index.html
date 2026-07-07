@@ -5,212 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NVDA 4H Rule of Thirds</title>
   <style>
-    :root {
-      --bg: #0d1117;
-      --card: #161b22;
-      --card-2: #0f141b;
-      --border: #30363d;
-      --text: #f0f6fc;
-      --muted: #9fb0c3;
-      --accent: #58a6ff;
-      --good: #3fb950;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: radial-gradient(circle at top, #172133 0, #0d1117 42%, #090c10 100%);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 40px 18px;
-    }
-    .page { max-width: 1120px; margin: 0 auto; }
-    .card {
-      background: rgba(22, 27, 34, 0.94);
-      border: 1px solid var(--border);
-      border-radius: 22px;
-      padding: 28px;
-      box-shadow: 0 24px 90px rgba(0, 0, 0, 0.35);
-      margin-bottom: 24px;
-    }
-    h1 { font-size: clamp(34px, 5vw, 56px); line-height: 1; margin: 0 0 10px; }
-    h2 { margin: 0 0 18px; font-size: 24px; }
-    .sub { color: var(--muted); font-size: 16px; margin-bottom: 26px; }
-    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
-    .metric { background: var(--card-2); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
-    .metric .label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 13px; }
-    .metric .value { font-size: clamp(26px, 4vw, 42px); font-weight: 800; margin-top: 8px; }
-    .latest-table, .history-table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid var(--border); padding: 12px 12px; text-align: right; white-space: nowrap; }
-    th:first-child, td:first-child { text-align: left; }
-    th { color: var(--muted); font-weight: 700; }
-    .table-wrap { overflow-x: auto; }
-    .footer { color: var(--muted); font-size: 14px; line-height: 1.45; margin-top: 20px; }
-    .chart-wrap { height: 720px; min-height: 520px; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: #0b0f14; }
-    .note { color: var(--muted); font-size: 14px; margin-top: 12px; }
-    .pill { display: inline-block; color: var(--good); background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.35); padding: 5px 10px; border-radius: 999px; font-size: 13px; margin-left: 8px; vertical-align: middle; }
-    @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .card { padding: 20px; } }
-    @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } body { padding: 22px 12px; } }
+    :root { --bg:#0d1117; --card:#161b22; --card-2:#0f141b; --border:#30363d; --text:#f0f6fc; --muted:#9fb0c3; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(circle at top,#172133 0,#0d1117 42%,#090c10 100%); color:var(--text); font-family:Arial,Helvetica,sans-serif; padding:40px 18px; }
+    .page { max-width:1120px; margin:0 auto; }
+    .card { background:rgba(22,27,34,.94); border:1px solid var(--border); border-radius:22px; padding:28px; box-shadow:0 24px 90px rgba(0,0,0,.35); margin-bottom:24px; }
+    h1 { font-size:clamp(34px,5vw,56px); line-height:1; margin:0 0 10px; }
+    h2 { margin:0 0 18px; font-size:24px; }
+    .sub { color:var(--muted); font-size:16px; margin-bottom:20px; }
+    .empty { background:var(--card-2); border:1px solid var(--border); border-radius:16px; padding:22px; color:var(--muted); line-height:1.5; }
+    .chart-wrap { height:720px; min-height:520px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#0b0f14; }
+    .note { color:var(--muted); font-size:14px; margin-top:12px; }
   </style>
 </head>
 <body>
   <main class="page">
     <section class="card">
       <h1>NVDA 4H Rule of Thirds</h1>
-      <div class="sub">Latest fully closed 4-hour candle: <strong>2026-07-06 13:30-16:00 ET</strong><span class="pill">Auto-updated</span></div>
-
-      <div class="grid">
-        <div class="metric"><div class="label">Low</div><div class="value">$195.42</div></div>
-        <div class="metric"><div class="label">High</div><div class="value">$197.14</div></div>
-        <div class="metric"><div class="label">Open</div><div class="value">$195.97</div></div>
-        <div class="metric"><div class="label">Close</div><div class="value">$195.57</div></div>
-      </div>
-
-      <table class="latest-table">
-        <thead><tr><th>Result</th><th>Price</th></tr></thead>
-        <tbody>
-          <tr><td>Range</td><td>$1.72</td></tr>
-          <tr><td>One Third</td><td>$0.57</td></tr>
-          <tr><td>Level 1</td><td>$195.99</td></tr>
-          <tr><td>Level 2 / Middle</td><td>$196.57</td></tr>
-          <tr><td>Level 3 / High Average</td><td>$197.14</td></tr>
-        </tbody>
-      </table>
-
-      <div class="footer">
-        Candle close ET: 2026-07-06T16:00:00-04:00<br />
-        Source: Yahoo Finance 60m candles aggregated to 4h regular-session candles<br />
-        Last updated UTC: 2026-07-07T16:04:46+00:00
-      </div>
+      <div class="sub">NVIDIA stock 4-hour candles</div>
+      <div class="empty">No result yet. Run the GitHub Action once and this page will update automatically with the latest 4-hour result and the most recent 10 closed 4-hour candles.</div>
     </section>
-
     <section class="card">
-      <h2>Most recent 10 closed 4-hour candles</h2>
-      <div class="table-wrap">
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>Candle</th><th>Low</th><th>High</th><th>Range</th><th>One Third</th><th>Level 1</th><th>Level 2 / Middle</th><th>Level 3 / High Avg</th>
-            </tr>
-          </thead>
-          <tbody>
-            
-            <tr>
-              <td>2026-07-06 13:30-16:00 ET</td>
-              <td>$195.42</td>
-              <td>$197.14</td>
-              <td>$1.72</td>
-              <td>$0.57</td>
-              <td>$195.99</td>
-              <td>$196.57</td>
-              <td>$197.14</td>
-            </tr>
-
-            <tr>
-              <td>2026-07-06 09:30-13:30 ET</td>
-              <td>$194.00</td>
-              <td>$197.55</td>
-              <td>$3.55</td>
-              <td>$1.18</td>
-              <td>$195.18</td>
-              <td>$196.37</td>
-              <td>$197.55</td>
-            </tr>
-
-            <tr>
-              <td>2026-07-02 13:30-16:00 ET</td>
-              <td>$192.35</td>
-              <td>$195.00</td>
-              <td>$2.65</td>
-              <td>$0.88</td>
-              <td>$193.23</td>
-              <td>$194.12</td>
-              <td>$195.00</td>
-            </tr>
-
-            <tr>
-              <td>2026-07-02 09:30-13:30 ET</td>
-              <td>$192.76</td>
-              <td>$200.05</td>
-              <td>$7.29</td>
-              <td>$2.43</td>
-              <td>$195.19</td>
-              <td>$197.62</td>
-              <td>$200.05</td>
-            </tr>
-
-            <tr>
-              <td>2026-07-01 13:30-16:00 ET</td>
-              <td>$197.23</td>
-              <td>$199.85</td>
-              <td>$2.62</td>
-              <td>$0.87</td>
-              <td>$198.10</td>
-              <td>$198.98</td>
-              <td>$199.85</td>
-            </tr>
-
-            <tr>
-              <td>2026-07-01 09:30-13:30 ET</td>
-              <td>$193.45</td>
-              <td>$198.48</td>
-              <td>$5.03</td>
-              <td>$1.68</td>
-              <td>$195.13</td>
-              <td>$196.80</td>
-              <td>$198.48</td>
-            </tr>
-
-            <tr>
-              <td>2026-06-30 13:30-16:00 ET</td>
-              <td>$198.06</td>
-              <td>$200.63</td>
-              <td>$2.57</td>
-              <td>$0.86</td>
-              <td>$198.92</td>
-              <td>$199.77</td>
-              <td>$200.63</td>
-            </tr>
-
-            <tr>
-              <td>2026-06-30 09:30-13:30 ET</td>
-              <td>$195.11</td>
-              <td>$199.06</td>
-              <td>$3.95</td>
-              <td>$1.32</td>
-              <td>$196.43</td>
-              <td>$197.74</td>
-              <td>$199.06</td>
-            </tr>
-
-            <tr>
-              <td>2026-06-29 13:30-16:00 ET</td>
-              <td>$193.69</td>
-              <td>$195.18</td>
-              <td>$1.49</td>
-              <td>$0.50</td>
-              <td>$194.19</td>
-              <td>$194.68</td>
-              <td>$195.18</td>
-            </tr>
-
-            <tr>
-              <td>2026-06-29 09:30-13:30 ET</td>
-              <td>$189.80</td>
-              <td>$196.17</td>
-              <td>$6.37</td>
-              <td>$2.12</td>
-              <td>$191.92</td>
-              <td>$194.05</td>
-              <td>$196.17</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Live NVDA 4H chart with EMA 9 / 20 / 50 / 200 and MACD</h2>
+      <h2>Live NVDA 4H chart with EMA 9 / 20 / 50 / 200, MACD and RSI</h2>
       <div class="chart-wrap">
         <div class="tradingview-widget-container" style="height:100%;width:100%">
           <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
@@ -240,13 +56,14 @@
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 20 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 50 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 200 } },
-              { "id": "MACD@tv-basicstudies" }
+              { "id": "MACD@tv-basicstudies" },
+              { "id": "RSI@tv-basicstudies", "inputs": { "length": 14 } }
             ]
           }
           </script>
         </div>
       </div>
-      <div class="note">The Rule of Thirds table uses closed 4-hour regular-session candles aggregated from Yahoo Finance 60-minute data. The live chart is provided by TradingView and may move during market hours.</div>
+      <div class="note">The Rule of Thirds table updates after the automation runs. The live chart is provided by TradingView.</div>
     </section>
   </main>
 </body>
