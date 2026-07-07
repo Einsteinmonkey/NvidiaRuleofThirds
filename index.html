@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NVDA 4H Rule of Thirds</title>
+  <style>
+    :root { --bg:#0d1117; --card:#161b22; --card-2:#0f141b; --border:#30363d; --text:#f0f6fc; --muted:#9fb0c3; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(circle at top,#172133 0,#0d1117 42%,#090c10 100%); color:var(--text); font-family:Arial,Helvetica,sans-serif; padding:40px 18px; }
+    .page { max-width:1120px; margin:0 auto; }
+    .card { background:rgba(22,27,34,.94); border:1px solid var(--border); border-radius:22px; padding:28px; box-shadow:0 24px 90px rgba(0,0,0,.35); margin-bottom:24px; }
+    h1 { font-size:clamp(34px,5vw,56px); line-height:1; margin:0 0 10px; }
+    h2 { margin:0 0 18px; font-size:24px; }
+    .sub { color:var(--muted); font-size:16px; margin-bottom:20px; }
+    .empty { background:var(--card-2); border:1px solid var(--border); border-radius:16px; padding:22px; color:var(--muted); line-height:1.5; }
+    .chart-wrap { height:720px; min-height:520px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#0b0f14; }
+    .note { color:var(--muted); font-size:14px; margin-top:12px; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <h1>NVDA 4H Rule of Thirds</h1>
+      <div class="sub">NVIDIA stock 4-hour candles</div>
+      <div class="empty">No result yet. Run the GitHub Action once and this page will update automatically with the latest 4-hour result and the most recent 10 closed 4-hour candles.</div>
+    </section>
+    <section class="card">
+      <h2>Live NVDA 4H chart with EMA 9 / 20 / 50 / 200 and MACD</h2>
+      <div class="chart-wrap">
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+          <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+          <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/symbols/NASDAQ-NVDA/" rel="noopener nofollow" target="_blank"><span class="blue-text">NVDA chart</span></a><span class="trademark"> by TradingView</span></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+          {
+            "autosize": true,
+            "symbol": "NASDAQ:NVDA",
+            "interval": "240",
+            "timezone": "America/New_York",
+            "theme": "dark",
+            "style": "1",
+            "locale": "en",
+            "backgroundColor": "rgba(13, 17, 23, 1)",
+            "gridColor": "rgba(48, 54, 61, 0.45)",
+            "withdateranges": true,
+            "allow_symbol_change": false,
+            "save_image": true,
+            "hide_side_toolbar": false,
+            "hide_top_toolbar": false,
+            "hide_legend": false,
+            "hide_volume": false,
+            "calendar": false,
+            "details": true,
+            "studies": [
+              { "id": "MAExp@tv-basicstudies", "inputs": { "length": 9 } },
+              { "id": "MAExp@tv-basicstudies", "inputs": { "length": 20 } },
+              { "id": "MAExp@tv-basicstudies", "inputs": { "length": 50 } },
+              { "id": "MAExp@tv-basicstudies", "inputs": { "length": 200 } },
+              { "id": "MACD@tv-basicstudies" }
+            ]
+          }
+          </script>
+        </div>
+      </div>
+      <div class="note">The Rule of Thirds table updates after the automation runs. The live chart is provided by TradingView.</div>
+    </section>
+  </main>
+</body>
+</html>
