@@ -1,0 +1,2 @@
+# NvidiaRuleofThirds
+NvidiaRuleofThirds
