@@ -258,6 +258,41 @@ def ema(values: List[float], period: int) -> List[Optional[float]]:
     return result
 
 
+def rsi(values: List[float], period: int = 14) -> List[Optional[float]]:
+    """Calculate Wilder RSI for a list of close prices."""
+    result: List[Optional[float]] = [None] * len(values)
+    if len(values) <= period or period <= 0:
+        return result
+
+    gains: List[float] = []
+    losses: List[float] = []
+    for i in range(1, period + 1):
+        change = values[i] - values[i - 1]
+        gains.append(max(change, 0.0))
+        losses.append(max(-change, 0.0))
+
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+
+    def calc_rsi(gain: float, loss: float) -> float:
+        if loss == 0:
+            return 100.0
+        rs = gain / loss
+        return 100.0 - (100.0 / (1.0 + rs))
+
+    result[period] = calc_rsi(avg_gain, avg_loss)
+
+    for i in range(period + 1, len(values)):
+        change = values[i] - values[i - 1]
+        gain = max(change, 0.0)
+        loss = max(-change, 0.0)
+        avg_gain = ((avg_gain * (period - 1)) + gain) / period
+        avg_loss = ((avg_loss * (period - 1)) + loss) / period
+        result[i] = calc_rsi(avg_gain, avg_loss)
+
+    return result
+
+
 def build_chart_data(candles: List[Candle]) -> List[dict]:
     closes = [c.close for c in candles]
     ema_9 = ema(closes, 9)
@@ -266,6 +301,7 @@ def build_chart_data(candles: List[Candle]) -> List[dict]:
     ema_200 = ema(closes, 200)
     ema_12 = ema(closes, 12)
     ema_26 = ema(closes, 26)
+    rsi_14 = rsi(closes, 14)
 
     macd_line: List[Optional[float]] = []
     for fast, slow in zip(ema_12, ema_26):
@@ -298,6 +334,7 @@ def build_chart_data(candles: List[Candle]) -> List[dict]:
                 "ema20": None if ema_20[i] is None else round(float(ema_20[i]), 4),
                 "ema50": None if ema_50[i] is None else round(float(ema_50[i]), 4),
                 "ema200": None if ema_200[i] is None else round(float(ema_200[i]), 4),
+                "rsi14": None if rsi_14[i] is None else round(float(rsi_14[i]), 2),
                 "macd": None if macd_value is None else round(float(macd_value), 4),
                 "macdSignal": None if signal_value is None else round(float(signal_value), 4),
                 "macdHist": None if histogram is None else round(float(histogram), 4),
@@ -514,7 +551,7 @@ def render_html(symbol: str, display_symbol: str, rows: List[RuleRow], generated
     </section>
 
     <section class="card">
-      <h2>Live {display_symbol} 4H chart with EMA 9 / 20 / 50 / 200 and MACD</h2>
+      <h2>Live {display_symbol} 4H chart with EMA 9 / 20 / 50 / 200, MACD and RSI</h2>
       <div class="chart-wrap">
         <div class="tradingview-widget-container" style="height:100%;width:100%">
           <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
@@ -544,7 +581,8 @@ def render_html(symbol: str, display_symbol: str, rows: List[RuleRow], generated
               {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 20 }} }},
               {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 50 }} }},
               {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 200 }} }},
-              {{ "id": "MACD@tv-basicstudies" }}
+              {{ "id": "MACD@tv-basicstudies" }},
+              {{ "id": "RSI@tv-basicstudies", "inputs": {{ "length": 14 }} }}
             ]
           }}
           </script>
@@ -587,7 +625,7 @@ def render_placeholder_html() -> str:
       <div class="empty">No result yet. Run the GitHub Action once and this page will update automatically with the latest 4-hour result and the most recent 10 closed 4-hour candles.</div>
     </section>
     <section class="card">
-      <h2>Live NVDA 4H chart with EMA 9 / 20 / 50 / 200 and MACD</h2>
+      <h2>Live NVDA 4H chart with EMA 9 / 20 / 50 / 200, MACD and RSI</h2>
       <div class="chart-wrap">
         <div class="tradingview-widget-container" style="height:100%;width:100%">
           <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
@@ -617,7 +655,8 @@ def render_placeholder_html() -> str:
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 20 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 50 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 200 } },
-              { "id": "MACD@tv-basicstudies" }
+              { "id": "MACD@tv-basicstudies" },
+              { "id": "RSI@tv-basicstudies", "inputs": { "length": 14 } }
             ]
           }
           </script>
