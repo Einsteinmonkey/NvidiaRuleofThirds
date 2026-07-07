@@ -14,7 +14,7 @@
     h2 { margin:0 0 18px; font-size:24px; }
     .sub { color:var(--muted); font-size:16px; margin-bottom:20px; }
     .empty { background:var(--card-2); border:1px solid var(--border); border-radius:16px; padding:22px; color:var(--muted); line-height:1.5; }
-    .chart-wrap { height:900px; min-height:700px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#0b0f14; }
+    .chart-wrap { height:720px; min-height:520px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#0b0f14; }
     .note { color:var(--muted); font-size:14px; margin-top:12px; }
   </style>
 </head>
@@ -26,7 +26,7 @@
       <div class="empty">No result yet. Run the GitHub Action once and this page will update automatically with the latest 4-hour result and the most recent 10 closed 4-hour candles.</div>
     </section>
     <section class="card">
-      <h2>Live NVDA 4H chart with EMA 9 / 20 / 50 / 200, MACD and RSI</h2>
+      <h2>Live NVDA 4H chart with EMA 9 / 20 / 50 / 200 and MACD</h2>
       <div class="chart-wrap">
         <div class="tradingview-widget-container" style="height:100%;width:100%">
           <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
@@ -51,14 +51,12 @@
             "hide_volume": false,
             "calendar": false,
             "details": true,
-            "support_host": "https://www.tradingview.com",
             "studies": [
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 9 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 20 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 50 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 200 } },
-              "MACD@tv-basicstudies",
-              "RSI@tv-basicstudies"
+              { "id": "MACD@tv-basicstudies" }
             ]
           }
           </script>
