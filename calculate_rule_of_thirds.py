@@ -576,13 +576,14 @@ def render_html(symbol: str, display_symbol: str, rows: List[RuleRow], generated
             "hide_volume": false,
             "calendar": false,
             "details": true,
+            "support_host": "https://www.tradingview.com",
             "studies": [
               {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 9 }} }},
               {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 20 }} }},
               {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 50 }} }},
               {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 200 }} }},
-              {{ "id": "MACD@tv-basicstudies" }},
-              {{ "id": "RSI@tv-basicstudies", "inputs": {{ "length": 14 }} }}
+              "MACD@tv-basicstudies",
+              "RSI@tv-basicstudies"
             ]
           }}
           </script>
@@ -613,7 +614,7 @@ def render_placeholder_html() -> str:
     h2 { margin:0 0 18px; font-size:24px; }
     .sub { color:var(--muted); font-size:16px; margin-bottom:20px; }
     .empty { background:var(--card-2); border:1px solid var(--border); border-radius:16px; padding:22px; color:var(--muted); line-height:1.5; }
-    .chart-wrap { height:720px; min-height:520px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#0b0f14; }
+    .chart-wrap { height:900px; min-height:700px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#0b0f14; }
     .note { color:var(--muted); font-size:14px; margin-top:12px; }
   </style>
 </head>
@@ -650,13 +651,14 @@ def render_placeholder_html() -> str:
             "hide_volume": false,
             "calendar": false,
             "details": true,
+            "support_host": "https://www.tradingview.com",
             "studies": [
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 9 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 20 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 50 } },
               { "id": "MAExp@tv-basicstudies", "inputs": { "length": 200 } },
-              { "id": "MACD@tv-basicstudies" },
-              { "id": "RSI@tv-basicstudies", "inputs": { "length": 14 } }
+              "MACD@tv-basicstudies",
+              "RSI@tv-basicstudies"
             ]
           }
           </script>
