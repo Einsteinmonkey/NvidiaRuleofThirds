@@ -1,0 +1,36 @@
+name: NVDA 4H Rule of Thirds
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron uses UTC.
+    # These runs update after the main regular-session 4-hour candles close.
+    # 18:45 UTC catches the 09:30-13:30 ET candle after it closes in both EDT/EST.
+    # 21:15 UTC catches the market-close candle after it closes in both EDT/EST.
+    - cron: "45 18 * * 1-5"
+    - cron: "15 21 * * 1-5"
+
+permissions:
+  contents: write
+
+jobs:
+  calculate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Calculate NVDA 4H Rule of Thirds
+        run: python calculate_rule_of_thirds.py --symbol NVDA --days 10
+
+      - name: Commit updated results
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update NVDA 4H rule of thirds"
+          file_pattern: "index.html results/latest.md results/last_10.md results/history.csv results/chart_data.json"
