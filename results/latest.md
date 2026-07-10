@@ -16,4 +16,4 @@ Latest fully closed 4-hour candle: **2026-07-10 13:30-16:00 ET**
 
 Candle close ET: 2026-07-10T16:00:00-04:00  
 Source: Yahoo Finance 60m candles aggregated to 4h regular-session candles  
-Updated UTC: 2026-07-10T20:05:03+00:00
+Updated UTC: 2026-07-10T22:18:18+00:00
