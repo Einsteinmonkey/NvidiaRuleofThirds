@@ -1,19 +1,19 @@
 # NVDA 4H Rule of Thirds
 
-Latest fully closed 4-hour candle: **2026-07-13 13:30-16:00 ET**
+Latest fully closed 4-hour candle: **2026-07-14 09:30-13:30 ET**
 
 | Field | Value |
 |---|---:|
-| Open | $204.25 |
-| Low | $203.35 |
-| High | $204.50 |
-| Close | $203.48 |
-| Range | $1.15 |
-| One Third | $0.38 |
-| Level 1 | $203.73 |
-| Level 2 / Middle | $204.12 |
-| Level 3 / High Average | $204.50 |
+| Open | $208.20 |
+| Low | $203.80 |
+| High | $211.52 |
+| Close | $211.03 |
+| Range | $7.72 |
+| One Third | $2.57 |
+| Level 1 | $206.37 |
+| Level 2 / Middle | $208.95 |
+| Level 3 / High Average | $211.52 |
 
-Candle close ET: 2026-07-13T16:00:00-04:00  
+Candle close ET: 2026-07-14T13:30:00-04:00  
 Source: Yahoo Finance 60m candles aggregated to 4h regular-session candles  
-Updated UTC: 2026-07-13T22:12:43+00:00
+Updated UTC: 2026-07-14T19:54:37+00:00
