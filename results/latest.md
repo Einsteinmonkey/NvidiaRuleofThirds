@@ -1,19 +1,47 @@
-# NVDA 4H Rule of Thirds
+# NVDA Multi-Timeframe Rule of Thirds
 
-Latest fully closed 4-hour candle: **2026-07-16 09:30-13:30 ET**
+Generated UTC: 2026-07-16T20:27:18.831426+00:00
 
-| Field | Value |
-|---|---:|
-| Open | $210.26 |
-| Low | $205.85 |
-| High | $212.50 |
-| Close | $207.32 |
-| Range | $6.65 |
-| One Third | $2.22 |
-| Level 1 | $208.07 |
-| Level 2 / Middle | $210.28 |
-| Level 3 / High Average | $212.50 |
+## 15M
+Open ET: 2026-07-16 15:45 ET
+Close ET: 2026-07-16 16:00 ET
+Low: $205.97
+High: $207.54
+Range: $1.5700
+One third: $0.5233
+Level 1: $206.4933
+Level 2 / Middle: $207.0167
+Level 3 / High average: $207.5400
 
-Candle close ET: 2026-07-16T13:30:00-04:00  
-Source: Yahoo Finance 60m candles aggregated to 4h regular-session candles  
-Updated UTC: 2026-07-16T19:44:52+00:00
+## 30M
+Open ET: 2026-07-16 15:30 ET
+Close ET: 2026-07-16 16:00 ET
+Low: $205.94
+High: $207.54
+Range: $1.6000
+One third: $0.5333
+Level 1: $206.4733
+Level 2 / Middle: $207.0067
+Level 3 / High average: $207.5400
+
+## 1H
+Open ET: 2026-07-16 14:30 ET
+Close ET: 2026-07-16 15:30 ET
+Low: $206.14
+High: $207.66
+Range: $1.5200
+One third: $0.5067
+Level 1: $206.6467
+Level 2 / Middle: $207.1533
+Level 3 / High average: $207.6600
+
+## 4H
+Open ET: 2026-07-16 13:30 ET
+Close ET: 2026-07-16 16:00 ET
+Low: $205.88
+High: $207.66
+Range: $1.7850
+One third: $0.5950
+Level 1: $206.4700
+Level 2 / Middle: $207.0650
+Level 3 / High average: $207.6600

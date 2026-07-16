@@ -5,22 +5,788 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NVDA Multi-Timeframe Rule of Thirds</title>
   <style>
-    :root { color-scheme: dark; --bg: #0b1118; --card: #151c25; --border: #2a3442; --text: #f4f7fb; --muted: #a9b6c8; --accent: #8fc7ff; }
+    :root {
+      color-scheme: dark;
+      --bg: #0b1118;
+      --card: #151c25;
+      --card-2: #0f151d;
+      --border: #2a3442;
+      --text: #f4f7fb;
+      --muted: #a9b6c8;
+      --accent: #8fc7ff;
+      --good: #7dffb2;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; background: radial-gradient(circle at top, #17202d 0, var(--bg) 38%, #080d13 100%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.45; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #17202d 0, var(--bg) 38%, #080d13 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
     main { max-width: 1180px; margin: 0 auto; padding: 36px 22px 56px; }
     h1 { font-size: clamp(2.3rem, 6vw, 5rem); line-height: .95; margin: 0 0 12px; letter-spacing: -0.06em; }
     .subtitle { margin: 0 0 26px; color: var(--muted); font-size: 1.05rem; }
-    .notice { padding: 22px; color: var(--muted); background: rgba(21, 28, 37, .9); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 18px 60px rgba(0,0,0,.25); }
+    .latest-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+    .latest-card, .table-card, .chart-link-card, .notice {
+      background: rgba(21, 28, 37, .9);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.25);
+    }
+    .latest-card { padding: 18px; }
+    .tf { color: var(--accent); font-weight: 800; font-size: .86rem; letter-spacing: .08em; text-transform: uppercase; }
+    .date { color: var(--muted); font-size: .86rem; margin-top: 5px; min-height: 38px; }
+    .big { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; margin: 14px 0 2px; }
+    .metric-row { display:flex; justify-content:space-between; gap:10px; border-top:1px solid var(--border); padding-top:10px; margin-top:10px; font-size:.9rem; }
+    .metric-row span:first-child { color: var(--muted); }
+    .metric-row strong { white-space: nowrap; }
+    .tables { display: grid; grid-template-columns: 1fr; gap: 18px; }
+    .table-card { overflow: hidden; }
+    .table-head { display: flex; justify-content: space-between; gap: 18px; align-items: baseline; padding: 20px 22px; border-bottom: 1px solid var(--border); }
+    .table-head h2 { margin: 0; font-size: 1.25rem; }
+    .table-head p { margin: 0; color: var(--muted); font-size: .9rem; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 1060px; }
+    th, td { text-align: right; padding: 12px 14px; border-bottom: 1px solid rgba(42,52,66,.72); font-size: .92rem; }
+    th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+    th { color: var(--muted); font-weight: 700; background: rgba(15,21,29,.8); position: sticky; top: 0; }
+    tr:last-child td { border-bottom: 0; }
+    .highlight { color: var(--good); font-weight: 800; }
+    .chart-link-card { padding: 22px; margin-top: 22px; }
+    .chart-link-card h2 { margin: 0 0 8px; }
+    .chart-link-card p { color: var(--muted); margin: 0 0 16px; }
+    .button { display:inline-flex; align-items:center; justify-content:center; padding: 12px 16px; border-radius: 12px; color: #061019; background: var(--accent); font-weight: 800; text-decoration: none; }
+    .notice { padding: 22px; color: var(--muted); }
     footer { color: var(--muted); margin-top: 28px; font-size: .9rem; }
+    @media (max-width: 960px) { .latest-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 600px) { .latest-grid { grid-template-columns: 1fr; } main { padding: 28px 14px 44px; } }
   </style>
 </head>
 <body>
   <main>
     <h1>NVDA Rule of Thirds</h1>
     <p class="subtitle">15M, 30M, 1H, and 4H candles. Results update automatically from closed regular-session candles.</p>
-    <div class="notice">No result yet. Run the GitHub Action once and this page will update automatically with the latest results.</div>
-    <footer>Data source: Yahoo Finance chart data · Not financial advice.</footer>
+    
+        <section class="latest-grid">
+          
+    <article class="latest-card">
+      <div class="tf">15M</div>
+      <div class="date">2026-07-16 15:45 ET<br>to 2026-07-16 16:00 ET</div>
+      <div class="big">$207.47</div>
+      <div class="metric-row"><span>Low</span><strong>$205.97</strong></div>
+      <div class="metric-row"><span>High</span><strong>$207.54</strong></div>
+      <div class="metric-row"><span>One third</span><strong>$0.5233</strong></div>
+      <div class="metric-row"><span>Middle</span><strong class="highlight">$207.0167</strong></div>
+    </article>
+    
+    <article class="latest-card">
+      <div class="tf">30M</div>
+      <div class="date">2026-07-16 15:30 ET<br>to 2026-07-16 16:00 ET</div>
+      <div class="big">$207.47</div>
+      <div class="metric-row"><span>Low</span><strong>$205.94</strong></div>
+      <div class="metric-row"><span>High</span><strong>$207.54</strong></div>
+      <div class="metric-row"><span>One third</span><strong>$0.5333</strong></div>
+      <div class="metric-row"><span>Middle</span><strong class="highlight">$207.0067</strong></div>
+    </article>
+    
+    <article class="latest-card">
+      <div class="tf">1H</div>
+      <div class="date">2026-07-16 14:30 ET<br>to 2026-07-16 15:30 ET</div>
+      <div class="big">$206.47</div>
+      <div class="metric-row"><span>Low</span><strong>$206.14</strong></div>
+      <div class="metric-row"><span>High</span><strong>$207.66</strong></div>
+      <div class="metric-row"><span>One third</span><strong>$0.5067</strong></div>
+      <div class="metric-row"><span>Middle</span><strong class="highlight">$207.1533</strong></div>
+    </article>
+    
+    <article class="latest-card">
+      <div class="tf">4H</div>
+      <div class="date">2026-07-16 13:30 ET<br>to 2026-07-16 16:00 ET</div>
+      <div class="big">$206.47</div>
+      <div class="metric-row"><span>Low</span><strong>$205.88</strong></div>
+      <div class="metric-row"><span>High</span><strong>$207.66</strong></div>
+      <div class="metric-row"><span>One third</span><strong>$0.5950</strong></div>
+      <div class="metric-row"><span>Middle</span><strong class="highlight">$207.0650</strong></div>
+    </article>
+    
+        </section>
+        <section class="tables">
+          
+    <section class="table-card">
+      <div class="table-head">
+        <h2>15M Rule of Thirds</h2>
+        <p>Most recent 10 fully closed candles</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Open ET</th>
+              <th>Close ET</th>
+              <th>Low</th>
+              <th>High</th>
+              <th>Range</th>
+              <th>One third</th>
+              <th>Level 1</th>
+              <th>Level 2 / Middle</th>
+              <th>Level 3 / High avg</th>
+              <th>Close</th>
+              <th>Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>2026-07-16 15:45 ET</td>
+              <td>2026-07-16 16:00 ET</td>
+              <td>$205.97</td>
+              <td>$207.54</td>
+              <td>$1.5700</td>
+              <td>$0.5233</td>
+              <td>$206.4933</td>
+              <td class="highlight">$207.0167</td>
+              <td>$207.5400</td>
+              <td>$207.47</td>
+              <td>10.51M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 15:30 ET</td>
+              <td>2026-07-16 15:45 ET</td>
+              <td>$205.94</td>
+              <td>$206.58</td>
+              <td>$0.6399</td>
+              <td>$0.2133</td>
+              <td>$206.1533</td>
+              <td class="highlight">$206.3666</td>
+              <td>$206.5799</td>
+              <td>$206.06</td>
+              <td>3.68M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 15:15 ET</td>
+              <td>2026-07-16 15:30 ET</td>
+              <td>$206.14</td>
+              <td>$207.19</td>
+              <td>$1.0500</td>
+              <td>$0.3500</td>
+              <td>$206.4900</td>
+              <td class="highlight">$206.8400</td>
+              <td>$207.1900</td>
+              <td>$206.47</td>
+              <td>3.03M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 15:00 ET</td>
+              <td>2026-07-16 15:15 ET</td>
+              <td>$206.68</td>
+              <td>$207.66</td>
+              <td>$0.9768</td>
+              <td>$0.3256</td>
+              <td>$207.0088</td>
+              <td class="highlight">$207.3344</td>
+              <td>$207.6600</td>
+              <td>$206.82</td>
+              <td>3.01M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 14:45 ET</td>
+              <td>2026-07-16 15:00 ET</td>
+              <td>$206.87</td>
+              <td>$207.42</td>
+              <td>$0.5500</td>
+              <td>$0.1833</td>
+              <td>$207.0533</td>
+              <td class="highlight">$207.2367</td>
+              <td>$207.4200</td>
+              <td>$207.02</td>
+              <td>1.94M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 14:30 ET</td>
+              <td>2026-07-16 14:45 ET</td>
+              <td>$206.52</td>
+              <td>$206.99</td>
+              <td>$0.4699</td>
+              <td>$0.1566</td>
+              <td>$206.6766</td>
+              <td class="highlight">$206.8333</td>
+              <td>$206.9899</td>
+              <td>$206.95</td>
+              <td>1.97M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 14:15 ET</td>
+              <td>2026-07-16 14:30 ET</td>
+              <td>$206.59</td>
+              <td>$207.38</td>
+              <td>$0.7900</td>
+              <td>$0.2633</td>
+              <td>$206.8533</td>
+              <td class="highlight">$207.1167</td>
+              <td>$207.3800</td>
+              <td>$206.89</td>
+              <td>4.61M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 14:00 ET</td>
+              <td>2026-07-16 14:15 ET</td>
+              <td>$206.27</td>
+              <td>$207.24</td>
+              <td>$0.9650</td>
+              <td>$0.3217</td>
+              <td>$206.5967</td>
+              <td class="highlight">$206.9183</td>
+              <td>$207.2400</td>
+              <td>$206.82</td>
+              <td>2.31M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 13:45 ET</td>
+              <td>2026-07-16 14:00 ET</td>
+              <td>$205.88</td>
+              <td>$206.83</td>
+              <td>$0.9550</td>
+              <td>$0.3183</td>
+              <td>$206.1933</td>
+              <td class="highlight">$206.5117</td>
+              <td>$206.8300</td>
+              <td>$206.68</td>
+              <td>2.45M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 13:30 ET</td>
+              <td>2026-07-16 13:45 ET</td>
+              <td>$206.01</td>
+              <td>$207.45</td>
+              <td>$1.4400</td>
+              <td>$0.4800</td>
+              <td>$206.4900</td>
+              <td class="highlight">$206.9700</td>
+              <td>$207.4500</td>
+              <td>$206.18</td>
+              <td>2.52M</td>
+            </tr>
+            </tbody>
+        </table>
+      </div>
+    </section>
+    
+    <section class="table-card">
+      <div class="table-head">
+        <h2>30M Rule of Thirds</h2>
+        <p>Most recent 10 fully closed candles</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Open ET</th>
+              <th>Close ET</th>
+              <th>Low</th>
+              <th>High</th>
+              <th>Range</th>
+              <th>One third</th>
+              <th>Level 1</th>
+              <th>Level 2 / Middle</th>
+              <th>Level 3 / High avg</th>
+              <th>Close</th>
+              <th>Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>2026-07-16 15:30 ET</td>
+              <td>2026-07-16 16:00 ET</td>
+              <td>$205.94</td>
+              <td>$207.54</td>
+              <td>$1.6000</td>
+              <td>$0.5333</td>
+              <td>$206.4733</td>
+              <td class="highlight">$207.0067</td>
+              <td>$207.5400</td>
+              <td>$207.47</td>
+              <td>14.19M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 15:00 ET</td>
+              <td>2026-07-16 15:30 ET</td>
+              <td>$206.14</td>
+              <td>$207.66</td>
+              <td>$1.5200</td>
+              <td>$0.5067</td>
+              <td>$206.6467</td>
+              <td class="highlight">$207.1533</td>
+              <td>$207.6600</td>
+              <td>$206.47</td>
+              <td>6.04M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 14:30 ET</td>
+              <td>2026-07-16 15:00 ET</td>
+              <td>$206.52</td>
+              <td>$207.42</td>
+              <td>$0.9000</td>
+              <td>$0.3000</td>
+              <td>$206.8200</td>
+              <td class="highlight">$207.1200</td>
+              <td>$207.4200</td>
+              <td>$207.02</td>
+              <td>3.92M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 14:00 ET</td>
+              <td>2026-07-16 14:30 ET</td>
+              <td>$206.27</td>
+              <td>$207.38</td>
+              <td>$1.1050</td>
+              <td>$0.3683</td>
+              <td>$206.6433</td>
+              <td class="highlight">$207.0117</td>
+              <td>$207.3800</td>
+              <td>$206.89</td>
+              <td>6.92M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 13:30 ET</td>
+              <td>2026-07-16 14:00 ET</td>
+              <td>$205.88</td>
+              <td>$207.45</td>
+              <td>$1.5750</td>
+              <td>$0.5250</td>
+              <td>$206.4000</td>
+              <td class="highlight">$206.9250</td>
+              <td>$207.4500</td>
+              <td>$206.68</td>
+              <td>4.96M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 13:00 ET</td>
+              <td>2026-07-16 13:30 ET</td>
+              <td>$206.62</td>
+              <td>$207.70</td>
+              <td>$1.0800</td>
+              <td>$0.3600</td>
+              <td>$206.9800</td>
+              <td class="highlight">$207.3400</td>
+              <td>$207.7000</td>
+              <td>$207.32</td>
+              <td>4.30M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 12:30 ET</td>
+              <td>2026-07-16 13:00 ET</td>
+              <td>$206.82</td>
+              <td>$207.82</td>
+              <td>$0.9950</td>
+              <td>$0.3317</td>
+              <td>$207.1517</td>
+              <td class="highlight">$207.4833</td>
+              <td>$207.8150</td>
+              <td>$207.20</td>
+              <td>4.60M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 12:00 ET</td>
+              <td>2026-07-16 12:30 ET</td>
+              <td>$206.46</td>
+              <td>$212.50</td>
+              <td>$6.0356</td>
+              <td>$2.0119</td>
+              <td>$208.4763</td>
+              <td class="highlight">$210.4881</td>
+              <td>$212.5000</td>
+              <td>$207.22</td>
+              <td>5.77M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 11:30 ET</td>
+              <td>2026-07-16 12:00 ET</td>
+              <td>$206.71</td>
+              <td>$207.94</td>
+              <td>$1.2300</td>
+              <td>$0.4100</td>
+              <td>$207.1200</td>
+              <td class="highlight">$207.5300</td>
+              <td>$207.9400</td>
+              <td>$207.60</td>
+              <td>5.17M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 11:00 ET</td>
+              <td>2026-07-16 11:30 ET</td>
+              <td>$205.85</td>
+              <td>$207.10</td>
+              <td>$1.2470</td>
+              <td>$0.4157</td>
+              <td>$206.2657</td>
+              <td class="highlight">$206.6813</td>
+              <td>$207.0970</td>
+              <td>$207.06</td>
+              <td>9.72M</td>
+            </tr>
+            </tbody>
+        </table>
+      </div>
+    </section>
+    
+    <section class="table-card">
+      <div class="table-head">
+        <h2>1H Rule of Thirds</h2>
+        <p>Most recent 10 fully closed candles</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Open ET</th>
+              <th>Close ET</th>
+              <th>Low</th>
+              <th>High</th>
+              <th>Range</th>
+              <th>One third</th>
+              <th>Level 1</th>
+              <th>Level 2 / Middle</th>
+              <th>Level 3 / High avg</th>
+              <th>Close</th>
+              <th>Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>2026-07-16 14:30 ET</td>
+              <td>2026-07-16 15:30 ET</td>
+              <td>$206.14</td>
+              <td>$207.66</td>
+              <td>$1.5200</td>
+              <td>$0.5067</td>
+              <td>$206.6467</td>
+              <td class="highlight">$207.1533</td>
+              <td>$207.6600</td>
+              <td>$206.47</td>
+              <td>9.96M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 13:30 ET</td>
+              <td>2026-07-16 14:30 ET</td>
+              <td>$205.88</td>
+              <td>$207.45</td>
+              <td>$1.5750</td>
+              <td>$0.5250</td>
+              <td>$206.4000</td>
+              <td class="highlight">$206.9250</td>
+              <td>$207.4500</td>
+              <td>$206.89</td>
+              <td>11.88M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 12:30 ET</td>
+              <td>2026-07-16 13:30 ET</td>
+              <td>$206.62</td>
+              <td>$207.82</td>
+              <td>$1.1950</td>
+              <td>$0.3983</td>
+              <td>$207.0183</td>
+              <td class="highlight">$207.4167</td>
+              <td>$207.8150</td>
+              <td>$207.32</td>
+              <td>8.90M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 11:30 ET</td>
+              <td>2026-07-16 12:30 ET</td>
+              <td>$206.46</td>
+              <td>$212.50</td>
+              <td>$6.0356</td>
+              <td>$2.0119</td>
+              <td>$208.4763</td>
+              <td class="highlight">$210.4881</td>
+              <td>$212.5000</td>
+              <td>$207.22</td>
+              <td>10.94M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 10:30 ET</td>
+              <td>2026-07-16 11:30 ET</td>
+              <td>$205.85</td>
+              <td>$209.15</td>
+              <td>$3.3000</td>
+              <td>$1.1000</td>
+              <td>$206.9500</td>
+              <td class="highlight">$208.0500</td>
+              <td>$209.1500</td>
+              <td>$207.06</td>
+              <td>18.00M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 09:30 ET</td>
+              <td>2026-07-16 10:30 ET</td>
+              <td>$207.18</td>
+              <td>$211.08</td>
+              <td>$3.9000</td>
+              <td>$1.3000</td>
+              <td>$208.4800</td>
+              <td class="highlight">$209.7800</td>
+              <td>$211.0800</td>
+              <td>$208.97</td>
+              <td>24.62M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-15 15:30 ET</td>
+              <td>2026-07-15 16:30 ET</td>
+              <td>$210.91</td>
+              <td>$212.57</td>
+              <td>$1.6593</td>
+              <td>$0.5531</td>
+              <td>$211.4631</td>
+              <td class="highlight">$212.0162</td>
+              <td>$212.5693</td>
+              <td>$212.49</td>
+              <td>11.59M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-15 14:30 ET</td>
+              <td>2026-07-15 15:30 ET</td>
+              <td>$209.85</td>
+              <td>$212.01</td>
+              <td>$2.1600</td>
+              <td>$0.7200</td>
+              <td>$210.5700</td>
+              <td class="highlight">$211.2900</td>
+              <td>$212.0100</td>
+              <td>$210.97</td>
+              <td>11.62M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-15 13:30 ET</td>
+              <td>2026-07-15 14:30 ET</td>
+              <td>$208.86</td>
+              <td>$211.00</td>
+              <td>$2.1400</td>
+              <td>$0.7133</td>
+              <td>$209.5733</td>
+              <td class="highlight">$210.2867</td>
+              <td>$211.0000</td>
+              <td>$210.47</td>
+              <td>10.11M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-15 12:30 ET</td>
+              <td>2026-07-15 13:30 ET</td>
+              <td>$206.04</td>
+              <td>$209.11</td>
+              <td>$3.0699</td>
+              <td>$1.0233</td>
+              <td>$207.0633</td>
+              <td class="highlight">$208.0866</td>
+              <td>$209.1099</td>
+              <td>$209.03</td>
+              <td>13.39M</td>
+            </tr>
+            </tbody>
+        </table>
+      </div>
+    </section>
+    
+    <section class="table-card">
+      <div class="table-head">
+        <h2>4H Rule of Thirds</h2>
+        <p>Most recent 10 fully closed candles</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Open ET</th>
+              <th>Close ET</th>
+              <th>Low</th>
+              <th>High</th>
+              <th>Range</th>
+              <th>One third</th>
+              <th>Level 1</th>
+              <th>Level 2 / Middle</th>
+              <th>Level 3 / High avg</th>
+              <th>Close</th>
+              <th>Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>2026-07-16 13:30 ET</td>
+              <td>2026-07-16 16:00 ET</td>
+              <td>$205.88</td>
+              <td>$207.66</td>
+              <td>$1.7850</td>
+              <td>$0.5950</td>
+              <td>$206.4700</td>
+              <td class="highlight">$207.0650</td>
+              <td>$207.6600</td>
+              <td>$206.47</td>
+              <td>21.84M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-16 09:30 ET</td>
+              <td>2026-07-16 13:30 ET</td>
+              <td>$205.85</td>
+              <td>$212.50</td>
+              <td>$6.6500</td>
+              <td>$2.2167</td>
+              <td>$208.0667</td>
+              <td class="highlight">$210.2833</td>
+              <td>$212.5000</td>
+              <td>$207.32</td>
+              <td>62.46M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-15 13:30 ET</td>
+              <td>2026-07-15 16:00 ET</td>
+              <td>$208.86</td>
+              <td>$212.57</td>
+              <td>$3.7093</td>
+              <td>$1.2364</td>
+              <td>$210.0964</td>
+              <td class="highlight">$211.3329</td>
+              <td>$212.5693</td>
+              <td>$212.49</td>
+              <td>33.32M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-15 09:30 ET</td>
+              <td>2026-07-15 13:30 ET</td>
+              <td>$206.04</td>
+              <td>$213.81</td>
+              <td>$7.7700</td>
+              <td>$2.5900</td>
+              <td>$208.6300</td>
+              <td class="highlight">$211.2200</td>
+              <td>$213.8100</td>
+              <td>$209.03</td>
+              <td>67.87M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-14 13:30 ET</td>
+              <td>2026-07-14 16:00 ET</td>
+              <td>$210.51</td>
+              <td>$212.54</td>
+              <td>$2.0300</td>
+              <td>$0.6767</td>
+              <td>$211.1867</td>
+              <td class="highlight">$211.8633</td>
+              <td>$212.5400</td>
+              <td>$211.80</td>
+              <td>34.76M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-14 09:30 ET</td>
+              <td>2026-07-14 13:30 ET</td>
+              <td>$203.80</td>
+              <td>$211.52</td>
+              <td>$7.7200</td>
+              <td>$2.5733</td>
+              <td>$206.3733</td>
+              <td class="highlight">$208.9467</td>
+              <td>$211.5200</td>
+              <td>$211.03</td>
+              <td>67.45M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-13 13:30 ET</td>
+              <td>2026-07-13 16:00 ET</td>
+              <td>$203.35</td>
+              <td>$204.50</td>
+              <td>$1.1500</td>
+              <td>$0.3833</td>
+              <td>$203.7333</td>
+              <td class="highlight">$204.1167</td>
+              <td>$204.5000</td>
+              <td>$203.48</td>
+              <td>31.78M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-13 09:30 ET</td>
+              <td>2026-07-13 13:30 ET</td>
+              <td>$203.84</td>
+              <td>$210.57</td>
+              <td>$6.7300</td>
+              <td>$2.2433</td>
+              <td>$206.0833</td>
+              <td class="highlight">$208.3267</td>
+              <td>$210.5700</td>
+              <td>$204.24</td>
+              <td>65.23M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-10 13:30 ET</td>
+              <td>2026-07-10 16:00 ET</td>
+              <td>$209.56</td>
+              <td>$211.00</td>
+              <td>$1.4400</td>
+              <td>$0.4800</td>
+              <td>$210.0400</td>
+              <td class="highlight">$210.5200</td>
+              <td>$211.0000</td>
+              <td>$210.95</td>
+              <td>40.32M</td>
+            </tr>
+            
+            <tr>
+              <td>2026-07-10 09:30 ET</td>
+              <td>2026-07-10 13:30 ET</td>
+              <td>$201.92</td>
+              <td>$210.56</td>
+              <td>$8.6400</td>
+              <td>$2.8800</td>
+              <td>$204.8000</td>
+              <td class="highlight">$207.6800</td>
+              <td>$210.5600</td>
+              <td>$210.19</td>
+              <td>89.82M</td>
+            </tr>
+            </tbody>
+        </table>
+      </div>
+    </section>
+    
+        </section>
+        
+    
+    <footer>
+      Last generated UTC: 2026-07-16T20:27:18.831426+00:00 · Data source: Yahoo Finance chart data · Not financial advice.
+    </footer>
   </main>
 </body>
 </html>
