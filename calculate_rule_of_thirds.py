@@ -1,229 +1,305 @@
 #!/usr/bin/env python3
-"""
-NVDA Rule of Thirds 4-hour candle calculator.
+"""Generate NVDA Rule of Thirds results for 15m, 30m, 1h, and 4h candles.
 
-Fetches 60-minute OHLC candles for NVIDIA (NVDA), aggregates regular-session
-bars into 4-hour candles, uses only fully closed candles, calculates Rule of
-Thirds levels, and writes:
-- index.html
-- results/latest.md
-- results/last_10.md
-- results/history.csv
-- results/chart_data.json
+Data source: Yahoo Finance chart endpoint.
+4H candles are built from regular-session 60m Yahoo candles:
+  - 09:30–13:30 ET
+  - 13:30–16:00 ET
 
-No API key required. Yahoo Finance chart data is used for the calculated table.
-The TradingView embed in index.html provides the live 4-hour chart.
+This script writes:
+  - index.html
+  - results/latest.md
+  - results/last_results.md
+  - results/history.csv
+  - results/data.json
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
-import html
 import json
 import math
+import os
 import sys
-from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
+from html import escape
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
-from zoneinfo import ZoneInfo
+from typing import Any, Dict, Iterable, List, Optional
 
-ROOT = Path(__file__).resolve().parent
-RESULTS_DIR = ROOT / "results"
-INDEX_PATH = ROOT / "index.html"
-NY_TZ = ZoneInfo("America/New_York")
-SESSION_OPEN = time(9, 30)
-SESSION_CLOSE = time(16, 0)
-FOUR_HOURS_MINUTES = 240
-CLOSE_BUFFER_MINUTES = 5
+try:
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover
+    ZoneInfo = None  # type: ignore
 
+NY = ZoneInfo("America/New_York") if ZoneInfo else timezone.utc
+UTC = timezone.utc
 
-@dataclass(frozen=True)
-class RawCandle:
-    start_et: datetime
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: int = 0
+DEFAULT_SYMBOL = "NVDA"
+DEFAULT_DAYS = 10
+DEFAULT_RECENT_CANDLES = 10
+# Optional. Paste your GoCharting NVDA shared chart URL here if you want a link button.
+DEFAULT_GOCHARTING_URL = ""
 
-
-@dataclass(frozen=True)
+@dataclass
 class Candle:
-    label: str
-    date: str
-    start_et: datetime
-    end_et: datetime
+    symbol: str
+    timeframe: str
+    open_time_utc: str
+    close_time_utc: str
+    open_time_et: str
+    close_time_et: str
+    trading_day: str
     open: float
     high: float
     low: float
     close: float
-    volume: int = 0
-    source: str = ""
+    volume: int
 
-
-@dataclass(frozen=True)
-class RuleRow:
-    candle: Candle
-    range_value: float
+@dataclass
+class RuleResult:
+    symbol: str
+    timeframe: str
+    open_time_utc: str
+    close_time_utc: str
+    open_time_et: str
+    close_time_et: str
+    trading_day: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+    range: float
     one_third: float
     level_1: float
     level_2_middle: float
     level_3_high_average: float
 
 
-def http_get(url: str, timeout: int = 30) -> bytes:
-    req = Request(
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--symbol", default=DEFAULT_SYMBOL)
+    parser.add_argument("--days", type=int, default=DEFAULT_DAYS)
+    parser.add_argument("--recent-candles", type=int, default=DEFAULT_RECENT_CANDLES)
+    parser.add_argument("--gocharting-url", default=DEFAULT_GOCHARTING_URL)
+    return parser.parse_args()
+
+
+def request_json(url: str) -> Dict[str, Any]:
+    req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "Mozilla/5.0 (compatible; NVDA-4H-Rule-of-Thirds/1.0)",
+            "User-Agent": "Mozilla/5.0 (compatible; rule-of-thirds-bot/1.0)",
             "Accept": "application/json,text/plain,*/*",
         },
     )
-    with urlopen(req, timeout=timeout) as response:  # nosec B310 - public market-data fetch
-        status = getattr(response, "status", 200)
-        if status >= 400:
-            raise RuntimeError(f"HTTP {status} fetching {url}")
-        return response.read()
-
-
-def clean_number(value) -> Optional[float]:
-    if value is None:
-        return None
     try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    if math.isnan(number) or math.isinf(number):
-        return None
-    return number
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")[:1000]
+        raise RuntimeError(f"Yahoo Finance HTTP {e.code}: {body}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Yahoo Finance request failed: {e}") from e
 
 
-def fetch_yahoo_hourly(symbol: str, range_value: str = "730d") -> List[RawCandle]:
-    """Fetch 60-minute candles from Yahoo Finance chart endpoint."""
-    params = urlencode(
+def fetch_yahoo_candles(symbol: str, interval: str, range_value: str = "30d") -> List[Candle]:
+    params = urllib.parse.urlencode(
         {
             "range": range_value,
-            "interval": "60m",
+            "interval": interval,
             "includePrePost": "false",
-            "includeAdjustedClose": "true",
-            "events": "div,splits",
+            "events": "history",
         }
     )
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?{params}"
-    payload = json.loads(http_get(url).decode("utf-8"))
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(symbol)}?{params}"
+    data = request_json(url)
 
-    result = (payload.get("chart", {}).get("result") or [None])[0]
-    if not result:
-        error = payload.get("chart", {}).get("error")
-        raise RuntimeError(f"Yahoo returned no result for {symbol}: {error}")
+    chart = data.get("chart", {})
+    error = chart.get("error")
+    if error:
+        raise RuntimeError(f"Yahoo Finance returned error: {error}")
 
+    results = chart.get("result") or []
+    if not results:
+        raise RuntimeError("Yahoo Finance returned no chart result.")
+
+    result = results[0]
     timestamps = result.get("timestamp") or []
-    quote = (result.get("indicators", {}).get("quote") or [None])[0]
-    if not timestamps or not quote:
-        raise RuntimeError(f"Yahoo returned incomplete intraday data for {symbol}")
-
+    quote = ((result.get("indicators") or {}).get("quote") or [{}])[0]
     opens = quote.get("open") or []
     highs = quote.get("high") or []
     lows = quote.get("low") or []
     closes = quote.get("close") or []
     volumes = quote.get("volume") or []
 
-    candles: List[RawCandle] = []
-    for i, ts in enumerate(timestamps):
-        o = clean_number(opens[i] if i < len(opens) else None)
-        h = clean_number(highs[i] if i < len(highs) else None)
-        l = clean_number(lows[i] if i < len(lows) else None)
-        c = clean_number(closes[i] if i < len(closes) else None)
-        if None in (o, h, l, c):
-            continue
-        start_et = datetime.fromtimestamp(int(ts), timezone.utc).astimezone(NY_TZ)
-        volume = int(clean_number(volumes[i] if i < len(volumes) else 0) or 0)
-        candles.append(RawCandle(start_et=start_et, open=o, high=h, low=l, close=c, volume=volume))
-
-    if not candles:
-        raise RuntimeError(f"Yahoo returned no usable hourly candles for {symbol}")
-
-    return sorted(candles, key=lambda x: x.start_et)
-
-
-def market_session_bounds(dt: datetime) -> Tuple[datetime, datetime]:
-    open_dt = dt.replace(hour=SESSION_OPEN.hour, minute=SESSION_OPEN.minute, second=0, microsecond=0)
-    close_dt = dt.replace(hour=SESSION_CLOSE.hour, minute=SESSION_CLOSE.minute, second=0, microsecond=0)
-    return open_dt, close_dt
-
-
-def regular_session_bucket(raw: RawCandle) -> Optional[Tuple[datetime, datetime]]:
-    """Return the 4-hour regular-session bucket for a raw candle, or None."""
-    start = raw.start_et
-    session_open, session_close = market_session_bounds(start)
-    if start < session_open or start >= session_close:
-        return None
-
-    minutes_since_open = int((start - session_open).total_seconds() // 60)
-    bucket_index = minutes_since_open // FOUR_HOURS_MINUTES
-    bucket_start = session_open + timedelta(minutes=FOUR_HOURS_MINUTES * bucket_index)
-    bucket_end = min(bucket_start + timedelta(minutes=FOUR_HOURS_MINUTES), session_close)
-    return bucket_start, bucket_end
-
-
-def aggregate_to_four_hour(raw_candles: Iterable[RawCandle]) -> List[Candle]:
-    grouped: Dict[Tuple[str, str], List[RawCandle]] = {}
-    bounds: Dict[Tuple[str, str], Tuple[datetime, datetime]] = {}
-
-    for raw in raw_candles:
-        bucket = regular_session_bucket(raw)
-        if bucket is None:
-            continue
-        bucket_start, bucket_end = bucket
-        key = (bucket_start.date().isoformat(), bucket_start.isoformat())
-        grouped.setdefault(key, []).append(raw)
-        bounds[key] = (bucket_start, bucket_end)
-
+    interval_minutes = interval_to_minutes(interval)
+    now_utc = datetime.now(UTC)
     candles: List[Candle] = []
-    for key in sorted(grouped.keys(), key=lambda k: bounds[k][0]):
-        bucket_rows = sorted(grouped[key], key=lambda x: x.start_et)
-        bucket_start, bucket_end = bounds[key]
-        label = f"{bucket_start.date().isoformat()} {bucket_start:%H:%M}-{bucket_end:%H:%M} ET"
+
+    for i, ts in enumerate(timestamps):
+        try:
+            o = float(opens[i])
+            h = float(highs[i])
+            l = float(lows[i])
+            c = float(closes[i])
+            v_raw = volumes[i]
+        except (IndexError, TypeError, ValueError):
+            continue
+
+        if any(math.isnan(x) for x in [o, h, l, c]):
+            continue
+
+        open_dt_utc = datetime.fromtimestamp(int(ts), UTC)
+        close_dt_utc = open_dt_utc + timedelta(minutes=interval_minutes)
+        # Skip candles that are not fully closed yet.
+        if close_dt_utc > now_utc:
+            continue
+
+        open_dt_et = open_dt_utc.astimezone(NY)
+        close_dt_et = close_dt_utc.astimezone(NY)
+
+        # Keep only regular session bars. Yahoo includePrePost=false usually does this,
+        # but this makes the output more predictable.
+        if not is_regular_session_open_time(open_dt_et, interval_minutes):
+            continue
+
         candles.append(
             Candle(
-                label=label,
-                date=bucket_start.date().isoformat(),
-                start_et=bucket_start,
-                end_et=bucket_end,
-                open=bucket_rows[0].open,
-                high=max(row.high for row in bucket_rows),
-                low=min(row.low for row in bucket_rows),
-                close=bucket_rows[-1].close,
-                volume=sum(row.volume for row in bucket_rows),
-                source="Yahoo Finance 60m candles aggregated to 4h regular-session candles",
+                symbol=symbol.upper(),
+                timeframe=interval,
+                open_time_utc=open_dt_utc.isoformat(),
+                close_time_utc=close_dt_utc.isoformat(),
+                open_time_et=open_dt_et.isoformat(),
+                close_time_et=close_dt_et.isoformat(),
+                trading_day=open_dt_et.date().isoformat(),
+                open=o,
+                high=h,
+                low=l,
+                close=c,
+                volume=int(v_raw or 0),
             )
         )
 
-    if not candles:
-        raise RuntimeError("Could not aggregate any regular-session 4-hour candles.")
+    candles.sort(key=lambda x: x.open_time_utc)
     return candles
 
 
-def closed_candles(candles: Iterable[Candle]) -> List[Candle]:
-    """Only include candles whose 4-hour bucket has fully closed."""
-    now_et = datetime.now(NY_TZ)
-    cutoff = now_et - timedelta(minutes=CLOSE_BUFFER_MINUTES)
-    return [c for c in candles if c.end_et <= cutoff]
+def interval_to_minutes(interval: str) -> int:
+    mapping = {
+        "15m": 15,
+        "30m": 30,
+        "60m": 60,
+        "1h": 60,
+    }
+    if interval not in mapping:
+        raise ValueError(f"Unsupported interval: {interval}")
+    return mapping[interval]
 
 
-def calculate_row(candle: Candle) -> RuleRow:
-    range_value = candle.high - candle.low
-    one_third = range_value / 3
-    level_1 = candle.low + one_third
-    level_2 = candle.low + (one_third * 2)
-    level_3 = candle.low + (one_third * 3)
-    return RuleRow(
-        candle=candle,
-        range_value=range_value,
+def is_regular_session_open_time(dt_et: datetime, interval_minutes: int) -> bool:
+    # U.S. regular equities session: 09:30 to 16:00 ET, Monday-Friday.
+    if dt_et.weekday() >= 5:
+        return False
+    minutes = dt_et.hour * 60 + dt_et.minute
+    session_open = 9 * 60 + 30
+    session_close = 16 * 60
+    return session_open <= minutes < session_close
+
+
+def filter_last_trading_days(candles: List[Candle], days: int) -> List[Candle]:
+    trading_days: List[str] = []
+    for c in reversed(candles):
+        if c.trading_day not in trading_days:
+            trading_days.append(c.trading_day)
+        if len(trading_days) >= days:
+            break
+    allowed = set(trading_days)
+    return [c for c in candles if c.trading_day in allowed]
+
+
+def aggregate_4h_from_60m(symbol: str, days: int) -> List[Candle]:
+    hourly = fetch_yahoo_candles(symbol, "60m", range_value="60d")
+    hourly = filter_last_trading_days(hourly, days + 3)
+
+    buckets: Dict[tuple[str, str], List[Candle]] = {}
+    for c in hourly:
+        dt = datetime.fromisoformat(c.open_time_et)
+        minutes = dt.hour * 60 + dt.minute
+        day = dt.date().isoformat()
+        if 9 * 60 + 30 <= minutes < 13 * 60 + 30:
+            block = "AM"
+        elif 13 * 60 + 30 <= minutes < 16 * 60:
+            block = "PM"
+        else:
+            continue
+        buckets.setdefault((day, block), []).append(c)
+
+    out: List[Candle] = []
+    for (day, block), parts in buckets.items():
+        parts.sort(key=lambda x: x.open_time_utc)
+        if not parts:
+            continue
+        first = parts[0]
+        last = parts[-1]
+        open_dt = datetime.fromisoformat(first.open_time_utc)
+        if block == "AM":
+            close_dt_et = datetime.fromisoformat(day + "T13:30:00").replace(tzinfo=NY)
+        else:
+            close_dt_et = datetime.fromisoformat(day + "T16:00:00").replace(tzinfo=NY)
+        close_dt_utc = close_dt_et.astimezone(UTC)
+
+        # Skip incomplete current 4H block.
+        if close_dt_utc > datetime.now(UTC):
+            continue
+
+        out.append(
+            Candle(
+                symbol=symbol.upper(),
+                timeframe="4h",
+                open_time_utc=open_dt.isoformat(),
+                close_time_utc=close_dt_utc.isoformat(),
+                open_time_et=datetime.fromisoformat(first.open_time_et).isoformat(),
+                close_time_et=close_dt_et.isoformat(),
+                trading_day=day,
+                open=first.open,
+                high=max(p.high for p in parts),
+                low=min(p.low for p in parts),
+                close=last.close,
+                volume=sum(p.volume for p in parts),
+            )
+        )
+
+    out.sort(key=lambda x: x.open_time_utc)
+    return filter_last_trading_days(out, days)
+
+
+def calculate_rule(c: Candle) -> RuleResult:
+    rng = c.high - c.low
+    one_third = rng / 3
+    level_1 = c.low + one_third
+    level_2 = level_1 + one_third
+    level_3 = level_2 + one_third
+    return RuleResult(
+        symbol=c.symbol,
+        timeframe=display_timeframe(c.timeframe),
+        open_time_utc=c.open_time_utc,
+        close_time_utc=c.close_time_utc,
+        open_time_et=c.open_time_et,
+        close_time_et=c.close_time_et,
+        trading_day=c.trading_day,
+        open=c.open,
+        high=c.high,
+        low=c.low,
+        close=c.close,
+        volume=c.volume,
+        range=rng,
         one_third=one_third,
         level_1=level_1,
         level_2_middle=level_2,
@@ -231,447 +307,322 @@ def calculate_row(candle: Candle) -> RuleRow:
     )
 
 
+def display_timeframe(tf: str) -> str:
+    return {"15m": "15M", "30m": "30M", "60m": "1H", "1h": "1H", "4h": "4H"}.get(tf, tf.upper())
+
+
 def fmt_price(value: float) -> str:
     return f"${value:,.2f}"
 
 
-def csv_escape(value: str) -> str:
-    return value.replace('"', '""')
+def fmt_precise(value: float) -> str:
+    return f"${value:,.4f}"
 
 
-def ema(values: List[float], period: int) -> List[Optional[float]]:
-    if not values or period <= 0:
-        return [None] * len(values)
-    multiplier = 2 / (period + 1)
-    result: List[Optional[float]] = []
-    prev: Optional[float] = None
-    for idx, value in enumerate(values):
-        if idx < period - 1:
-            result.append(None)
+def fmt_volume(value: int) -> str:
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.2f}M"
+    if value >= 1_000:
+        return f"{value / 1_000:.1f}K"
+    return str(value)
+
+
+def fmt_et(iso_value: str) -> str:
+    dt = datetime.fromisoformat(iso_value)
+    return dt.strftime("%Y-%m-%d %H:%M ET")
+
+
+def build_results(symbol: str, days: int, recent_candles: int) -> Dict[str, List[RuleResult]]:
+    timeframes = [
+        ("15m", lambda: fetch_yahoo_candles(symbol, "15m", range_value="30d")),
+        ("30m", lambda: fetch_yahoo_candles(symbol, "30m", range_value="30d")),
+        ("1h", lambda: fetch_yahoo_candles(symbol, "60m", range_value="60d")),
+        ("4h", lambda: aggregate_4h_from_60m(symbol, days)),
+    ]
+
+    all_results: Dict[str, List[RuleResult]] = {}
+    for key, fetcher in timeframes:
+        candles = fetcher()
+        candles = filter_last_trading_days(candles, days)
+        if not candles:
+            raise RuntimeError(f"No closed candles found for {symbol} {key}.")
+        rules = [calculate_rule(c) for c in candles]
+        # Show only the most recent N candles per timeframe for a clean page.
+        all_results[display_timeframe(key)] = rules[-recent_candles:]
+    return all_results
+
+
+def write_outputs(all_results: Dict[str, List[RuleResult]], gocharting_url: str) -> None:
+    Path("results").mkdir(exist_ok=True)
+    generated_at = datetime.now(UTC).isoformat()
+    payload = {
+        "generated_at_utc": generated_at,
+        "results": {k: [asdict(r) for r in v] for k, v in all_results.items()},
+        "gocharting_url": gocharting_url,
+    }
+    Path("results/data.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    Path("index.html").write_text(render_html(all_results, generated_at, gocharting_url), encoding="utf-8")
+    Path("results/latest.md").write_text(render_latest_markdown(all_results, generated_at, gocharting_url), encoding="utf-8")
+    Path("results/last_results.md").write_text(render_full_markdown(all_results, generated_at), encoding="utf-8")
+    write_csv(all_results)
+
+
+def write_csv(all_results: Dict[str, List[RuleResult]]) -> None:
+    rows: List[Dict[str, Any]] = []
+    for timeframe, results in all_results.items():
+        for r in results:
+            rows.append(asdict(r))
+    rows.sort(key=lambda r: (r["timeframe"], r["open_time_utc"]))
+    if not rows:
+        return
+    with open("results/history.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def render_html(all_results: Dict[str, List[RuleResult]], generated_at: str, gocharting_url: str) -> str:
+    symbol = "NVDA"
+    latest_cards = []
+    tables = []
+
+    for timeframe in ["15M", "30M", "1H", "4H"]:
+        results = all_results.get(timeframe, [])
+        if not results:
             continue
-        if idx == period - 1:
-            prev = sum(values[:period]) / period
-        else:
-            assert prev is not None
-            prev = (value - prev) * multiplier + prev
-        result.append(prev)
-    return result
+        latest = results[-1]
+        latest_cards.append(render_latest_card(timeframe, latest))
+        tables.append(render_table(timeframe, list(reversed(results))))
 
+    if not latest_cards:
+        body = """
+        <div class=\"notice\">No result yet. Run the GitHub Action once and this page will update automatically.</div>
+        """
+    else:
+        body = f"""
+        <section class=\"latest-grid\">
+          {''.join(latest_cards)}
+        </section>
+        <section class=\"tables\">
+          {''.join(tables)}
+        </section>
+        """
 
-def build_chart_data(candles: List[Candle]) -> List[dict]:
-    closes = [c.close for c in candles]
-    ema_9 = ema(closes, 9)
-    ema_20 = ema(closes, 20)
-    ema_50 = ema(closes, 50)
-    ema_200 = ema(closes, 200)
-    ema_12 = ema(closes, 12)
-    ema_26 = ema(closes, 26)
-
-    macd_line: List[Optional[float]] = []
-    for fast, slow in zip(ema_12, ema_26):
-        macd_line.append(None if fast is None or slow is None else fast - slow)
-
-    macd_signal: List[Optional[float]] = [None] * len(macd_line)
-    valid_indices = [i for i, value in enumerate(macd_line) if value is not None]
-    valid_values = [macd_line[i] for i in valid_indices if macd_line[i] is not None]
-    valid_signal = ema([float(v) for v in valid_values], 9)
-    for idx, signal_value in zip(valid_indices, valid_signal):
-        macd_signal[idx] = signal_value
-
-    rows = []
-    for i, candle in enumerate(candles):
-        signal_value = macd_signal[i]
-        macd_value = macd_line[i]
-        histogram = None if macd_value is None or signal_value is None else macd_value - signal_value
-        rows.append(
-            {
-                "label": candle.label,
-                "date": candle.date,
-                "startEt": candle.start_et.isoformat(),
-                "endEt": candle.end_et.isoformat(),
-                "open": round(candle.open, 4),
-                "high": round(candle.high, 4),
-                "low": round(candle.low, 4),
-                "close": round(candle.close, 4),
-                "volume": candle.volume,
-                "ema9": None if ema_9[i] is None else round(float(ema_9[i]), 4),
-                "ema20": None if ema_20[i] is None else round(float(ema_20[i]), 4),
-                "ema50": None if ema_50[i] is None else round(float(ema_50[i]), 4),
-                "ema200": None if ema_200[i] is None else round(float(ema_200[i]), 4),
-                "macd": None if macd_value is None else round(float(macd_value), 4),
-                "macdSignal": None if signal_value is None else round(float(signal_value), 4),
-                "macdHist": None if histogram is None else round(float(histogram), 4),
-            }
-        )
-    return rows
-
-
-def render_latest_md(symbol: str, latest: RuleRow, generated_at: str) -> str:
-    c = latest.candle
-    return f"""# {symbol} 4H Rule of Thirds
-
-Latest fully closed 4-hour candle: **{c.label}**
-
-| Field | Value |
-|---|---:|
-| Open | {fmt_price(c.open)} |
-| Low | {fmt_price(c.low)} |
-| High | {fmt_price(c.high)} |
-| Close | {fmt_price(c.close)} |
-| Range | {fmt_price(latest.range_value)} |
-| One Third | {fmt_price(latest.one_third)} |
-| Level 1 | {fmt_price(latest.level_1)} |
-| Level 2 / Middle | {fmt_price(latest.level_2_middle)} |
-| Level 3 / High Average | {fmt_price(latest.level_3_high_average)} |
-
-Candle close ET: {c.end_et.isoformat()}  
-Source: {c.source}  
-Updated UTC: {generated_at}
-"""
-
-
-def render_last_n_md(symbol: str, rows: List[RuleRow]) -> str:
-    lines = [
-        f"# {symbol} 4H Rule of Thirds - Last {len(rows)} Closed Candles",
-        "",
-        "| Candle | Low | High | Range | One Third | Level 1 | Level 2 / Middle | Level 3 / High Avg |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|",
-    ]
-    for row in rows:
-        c = row.candle
-        lines.append(
-            f"| {c.label} | {fmt_price(c.low)} | {fmt_price(c.high)} | {fmt_price(row.range_value)} | "
-            f"{fmt_price(row.one_third)} | {fmt_price(row.level_1)} | {fmt_price(row.level_2_middle)} | {fmt_price(row.level_3_high_average)} |"
-        )
-    lines.append("")
-    return "\n".join(lines)
-
-
-def render_history_csv(rows: List[RuleRow], generated_at: str) -> str:
-    header = [
-        "generated_at_utc",
-        "candle_label",
-        "date",
-        "start_et",
-        "end_et",
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "range",
-        "one_third",
-        "level_1",
-        "level_2_middle",
-        "level_3_high_average",
-        "source",
-    ]
-    out = [",".join(header)]
-    for row in rows:
-        c = row.candle
-        values = [
-            generated_at,
-            c.label,
-            c.date,
-            c.start_et.isoformat(),
-            c.end_et.isoformat(),
-            f"{c.open:.6f}",
-            f"{c.high:.6f}",
-            f"{c.low:.6f}",
-            f"{c.close:.6f}",
-            str(c.volume),
-            f"{row.range_value:.6f}",
-            f"{row.one_third:.6f}",
-            f"{row.level_1:.6f}",
-            f"{row.level_2_middle:.6f}",
-            f"{row.level_3_high_average:.6f}",
-            c.source,
-        ]
-        out.append(",".join(f'"{csv_escape(v)}"' if "," in v or " " in v else v for v in values))
-    out.append("")
-    return "\n".join(out)
-
-
-def render_html(symbol: str, display_symbol: str, rows: List[RuleRow], generated_at: str) -> str:
-    latest = rows[-1]
-    c = latest.candle
-
-    table_rows = "\n".join(
-        f"""
-            <tr>
-              <td>{html.escape(row.candle.label)}</td>
-              <td>{fmt_price(row.candle.low)}</td>
-              <td>{fmt_price(row.candle.high)}</td>
-              <td>{fmt_price(row.range_value)}</td>
-              <td>{fmt_price(row.one_third)}</td>
-              <td>{fmt_price(row.level_1)}</td>
-              <td>{fmt_price(row.level_2_middle)}</td>
-              <td>{fmt_price(row.level_3_high_average)}</td>
-            </tr>"""
-        for row in reversed(rows)
-    )
+    link_html = ""
+    if gocharting_url.strip():
+        safe_url = escape(gocharting_url.strip(), quote=True)
+        link_html = f"""
+        <section class=\"chart-link-card\">
+          <h2>GoCharting</h2>
+          <p>No chart is embedded on this page. Use the button below to open your NVDA chart in GoCharting.</p>
+          <a class=\"button\" href=\"{safe_url}\" target=\"_blank\" rel=\"noopener\">Open chart in GoCharting →</a>
+        </section>
+        """
 
     return f"""<!doctype html>
-<html lang="en">
+<html lang=\"en\">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{display_symbol} 4H Rule of Thirds</title>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <title>{symbol} Multi-Timeframe Rule of Thirds</title>
   <style>
     :root {{
-      --bg: #0d1117;
-      --card: #161b22;
-      --card-2: #0f141b;
-      --border: #30363d;
-      --text: #f0f6fc;
-      --muted: #9fb0c3;
-      --accent: #58a6ff;
-      --good: #3fb950;
+      color-scheme: dark;
+      --bg: #0b1118;
+      --card: #151c25;
+      --card-2: #0f151d;
+      --border: #2a3442;
+      --text: #f4f7fb;
+      --muted: #a9b6c8;
+      --accent: #8fc7ff;
+      --good: #7dffb2;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
-      min-height: 100vh;
-      background: radial-gradient(circle at top, #172133 0, #0d1117 42%, #090c10 100%);
+      background: radial-gradient(circle at top, #17202d 0, var(--bg) 38%, #080d13 100%);
       color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 40px 18px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
     }}
-    .page {{ max-width: 1120px; margin: 0 auto; }}
-    .card {{
-      background: rgba(22, 27, 34, 0.94);
+    main {{ max-width: 1180px; margin: 0 auto; padding: 36px 22px 56px; }}
+    h1 {{ font-size: clamp(2.3rem, 6vw, 5rem); line-height: .95; margin: 0 0 12px; letter-spacing: -0.06em; }}
+    .subtitle {{ margin: 0 0 26px; color: var(--muted); font-size: 1.05rem; }}
+    .latest-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }}
+    .latest-card, .table-card, .chart-link-card, .notice {{
+      background: rgba(21, 28, 37, .9);
       border: 1px solid var(--border);
-      border-radius: 22px;
-      padding: 28px;
-      box-shadow: 0 24px 90px rgba(0, 0, 0, 0.35);
-      margin-bottom: 24px;
+      border-radius: 20px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.25);
     }}
-    h1 {{ font-size: clamp(34px, 5vw, 56px); line-height: 1; margin: 0 0 10px; }}
-    h2 {{ margin: 0 0 18px; font-size: 24px; }}
-    .sub {{ color: var(--muted); font-size: 16px; margin-bottom: 26px; }}
-    .grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }}
-    .metric {{ background: var(--card-2); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }}
-    .metric .label {{ color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 13px; }}
-    .metric .value {{ font-size: clamp(26px, 4vw, 42px); font-weight: 800; margin-top: 8px; }}
-    .latest-table, .history-table {{ width: 100%; border-collapse: collapse; }}
-    th, td {{ border-bottom: 1px solid var(--border); padding: 12px 12px; text-align: right; white-space: nowrap; }}
-    th:first-child, td:first-child {{ text-align: left; }}
-    th {{ color: var(--muted); font-weight: 700; }}
+    .latest-card {{ padding: 18px; }}
+    .tf {{ color: var(--accent); font-weight: 800; font-size: .86rem; letter-spacing: .08em; text-transform: uppercase; }}
+    .date {{ color: var(--muted); font-size: .86rem; margin-top: 5px; min-height: 38px; }}
+    .big {{ font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; margin: 14px 0 2px; }}
+    .metric-row {{ display:flex; justify-content:space-between; gap:10px; border-top:1px solid var(--border); padding-top:10px; margin-top:10px; font-size:.9rem; }}
+    .metric-row span:first-child {{ color: var(--muted); }}
+    .metric-row strong {{ white-space: nowrap; }}
+    .tables {{ display: grid; grid-template-columns: 1fr; gap: 18px; }}
+    .table-card {{ overflow: hidden; }}
+    .table-head {{ display: flex; justify-content: space-between; gap: 18px; align-items: baseline; padding: 20px 22px; border-bottom: 1px solid var(--border); }}
+    .table-head h2 {{ margin: 0; font-size: 1.25rem; }}
+    .table-head p {{ margin: 0; color: var(--muted); font-size: .9rem; }}
     .table-wrap {{ overflow-x: auto; }}
-    .footer {{ color: var(--muted); font-size: 14px; line-height: 1.45; margin-top: 20px; }}
-    .chart-wrap {{ height: 720px; min-height: 520px; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: #0b0f14; }}
-    .note {{ color: var(--muted); font-size: 14px; margin-top: 12px; }}
-    .pill {{ display: inline-block; color: var(--good); background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.35); padding: 5px 10px; border-radius: 999px; font-size: 13px; margin-left: 8px; vertical-align: middle; }}
-    @media (max-width: 900px) {{ .grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} .card {{ padding: 20px; }} }}
-    @media (max-width: 520px) {{ .grid {{ grid-template-columns: 1fr; }} body {{ padding: 22px 12px; }} }}
+    table {{ width: 100%; border-collapse: collapse; min-width: 1060px; }}
+    th, td {{ text-align: right; padding: 12px 14px; border-bottom: 1px solid rgba(42,52,66,.72); font-size: .92rem; }}
+    th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) {{ text-align: left; }}
+    th {{ color: var(--muted); font-weight: 700; background: rgba(15,21,29,.8); position: sticky; top: 0; }}
+    tr:last-child td {{ border-bottom: 0; }}
+    .highlight {{ color: var(--good); font-weight: 800; }}
+    .chart-link-card {{ padding: 22px; margin-top: 22px; }}
+    .chart-link-card h2 {{ margin: 0 0 8px; }}
+    .chart-link-card p {{ color: var(--muted); margin: 0 0 16px; }}
+    .button {{ display:inline-flex; align-items:center; justify-content:center; padding: 12px 16px; border-radius: 12px; color: #061019; background: var(--accent); font-weight: 800; text-decoration: none; }}
+    .notice {{ padding: 22px; color: var(--muted); }}
+    footer {{ color: var(--muted); margin-top: 28px; font-size: .9rem; }}
+    @media (max-width: 960px) {{ .latest-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+    @media (max-width: 600px) {{ .latest-grid {{ grid-template-columns: 1fr; }} main {{ padding: 28px 14px 44px; }} }}
   </style>
 </head>
 <body>
-  <main class="page">
-    <section class="card">
-      <h1>{display_symbol} 4H Rule of Thirds</h1>
-      <div class="sub">Latest fully closed 4-hour candle: <strong>{html.escape(c.label)}</strong><span class="pill">Auto-updated</span></div>
+  <main>
+    <h1>{symbol} Rule of Thirds</h1>
+    <p class=\"subtitle\">15M, 30M, 1H, and 4H candles. Results update automatically from closed regular-session candles.</p>
+    {body}
+    {link_html}
+    <footer>
+      Last generated UTC: {escape(generated_at)} · Data source: Yahoo Finance chart data · Not financial advice.
+    </footer>
+  </main>
+</body>
+</html>
+"""
 
-      <div class="grid">
-        <div class="metric"><div class="label">Low</div><div class="value">{fmt_price(c.low)}</div></div>
-        <div class="metric"><div class="label">High</div><div class="value">{fmt_price(c.high)}</div></div>
-        <div class="metric"><div class="label">Open</div><div class="value">{fmt_price(c.open)}</div></div>
-        <div class="metric"><div class="label">Close</div><div class="value">{fmt_price(c.close)}</div></div>
+
+def render_latest_card(timeframe: str, r: RuleResult) -> str:
+    return f"""
+    <article class=\"latest-card\">
+      <div class=\"tf\">{escape(timeframe)}</div>
+      <div class=\"date\">{escape(fmt_et(r.open_time_et))}<br>to {escape(fmt_et(r.close_time_et))}</div>
+      <div class=\"big\">{fmt_price(r.close)}</div>
+      <div class=\"metric-row\"><span>Low</span><strong>{fmt_price(r.low)}</strong></div>
+      <div class=\"metric-row\"><span>High</span><strong>{fmt_price(r.high)}</strong></div>
+      <div class=\"metric-row\"><span>One third</span><strong>{fmt_precise(r.one_third)}</strong></div>
+      <div class=\"metric-row\"><span>Middle</span><strong class=\"highlight\">{fmt_precise(r.level_2_middle)}</strong></div>
+    </article>
+    """
+
+
+def render_table(timeframe: str, results: List[RuleResult]) -> str:
+    rows = []
+    for r in results:
+        rows.append(
+            f"""
+            <tr>
+              <td>{escape(fmt_et(r.open_time_et))}</td>
+              <td>{escape(fmt_et(r.close_time_et))}</td>
+              <td>{fmt_price(r.low)}</td>
+              <td>{fmt_price(r.high)}</td>
+              <td>{fmt_precise(r.range)}</td>
+              <td>{fmt_precise(r.one_third)}</td>
+              <td>{fmt_precise(r.level_1)}</td>
+              <td class=\"highlight\">{fmt_precise(r.level_2_middle)}</td>
+              <td>{fmt_precise(r.level_3_high_average)}</td>
+              <td>{fmt_price(r.close)}</td>
+              <td>{fmt_volume(r.volume)}</td>
+            </tr>
+            """
+        )
+    return f"""
+    <section class=\"table-card\">
+      <div class=\"table-head\">
+        <h2>{escape(timeframe)} Rule of Thirds</h2>
+        <p>Most recent {len(results)} fully closed candles</p>
       </div>
-
-      <table class="latest-table">
-        <thead><tr><th>Result</th><th>Price</th></tr></thead>
-        <tbody>
-          <tr><td>Range</td><td>{fmt_price(latest.range_value)}</td></tr>
-          <tr><td>One Third</td><td>{fmt_price(latest.one_third)}</td></tr>
-          <tr><td>Level 1</td><td>{fmt_price(latest.level_1)}</td></tr>
-          <tr><td>Level 2 / Middle</td><td>{fmt_price(latest.level_2_middle)}</td></tr>
-          <tr><td>Level 3 / High Average</td><td>{fmt_price(latest.level_3_high_average)}</td></tr>
-        </tbody>
-      </table>
-
-      <div class="footer">
-        Candle close ET: {html.escape(c.end_et.isoformat())}<br />
-        Source: {html.escape(c.source)}<br />
-        Last updated UTC: {html.escape(generated_at)}
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Most recent {len(rows)} closed 4-hour candles</h2>
-      <div class="table-wrap">
-        <table class="history-table">
+      <div class=\"table-wrap\">
+        <table>
           <thead>
             <tr>
-              <th>Candle</th><th>Low</th><th>High</th><th>Range</th><th>One Third</th><th>Level 1</th><th>Level 2 / Middle</th><th>Level 3 / High Avg</th>
+              <th>Open ET</th>
+              <th>Close ET</th>
+              <th>Low</th>
+              <th>High</th>
+              <th>Range</th>
+              <th>One third</th>
+              <th>Level 1</th>
+              <th>Level 2 / Middle</th>
+              <th>Level 3 / High avg</th>
+              <th>Close</th>
+              <th>Volume</th>
             </tr>
           </thead>
-          <tbody>
-            {table_rows}
-          </tbody>
+          <tbody>{''.join(rows)}</tbody>
         </table>
       </div>
     </section>
+    """
 
-    <section class="card">
-      <h2>Live {display_symbol} 4H chart with EMA 9 / 20 / 50 / 200 and MACD</h2>
-      <div class="chart-wrap">
-        <div class="tradingview-widget-container" style="height:100%;width:100%">
-          <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
-          <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/symbols/NASDAQ-NVDA/" rel="noopener nofollow" target="_blank"><span class="blue-text">NVDA chart</span></a><span class="trademark"> by TradingView</span></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-          {{
-            "autosize": true,
-            "symbol": "NASDAQ:NVDA",
-            "interval": "240",
-            "timezone": "America/New_York",
-            "theme": "dark",
-            "style": "1",
-            "locale": "en",
-            "backgroundColor": "rgba(13, 17, 23, 1)",
-            "gridColor": "rgba(48, 54, 61, 0.45)",
-            "withdateranges": true,
-            "allow_symbol_change": false,
-            "save_image": true,
-            "hide_side_toolbar": false,
-            "hide_top_toolbar": false,
-            "hide_legend": false,
-            "hide_volume": false,
-            "calendar": false,
-            "details": true,
-            "studies": [
-              {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 9 }} }},
-              {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 20 }} }},
-              {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 50 }} }},
-              {{ "id": "MAExp@tv-basicstudies", "inputs": {{ "length": 200 }} }},
-              {{ "id": "MACD@tv-basicstudies" }}
+
+def render_latest_markdown(all_results: Dict[str, List[RuleResult]], generated_at: str, gocharting_url: str) -> str:
+    lines = ["# NVDA Multi-Timeframe Rule of Thirds", "", f"Generated UTC: {generated_at}", ""]
+    for timeframe in ["15M", "30M", "1H", "4H"]:
+        results = all_results.get(timeframe, [])
+        if not results:
+            continue
+        r = results[-1]
+        lines.extend(
+            [
+                f"## {timeframe}",
+                f"Open ET: {fmt_et(r.open_time_et)}",
+                f"Close ET: {fmt_et(r.close_time_et)}",
+                f"Low: {fmt_price(r.low)}",
+                f"High: {fmt_price(r.high)}",
+                f"Range: {fmt_precise(r.range)}",
+                f"One third: {fmt_precise(r.one_third)}",
+                f"Level 1: {fmt_precise(r.level_1)}",
+                f"Level 2 / Middle: {fmt_precise(r.level_2_middle)}",
+                f"Level 3 / High average: {fmt_precise(r.level_3_high_average)}",
+                "",
             ]
-          }}
-          </script>
-        </div>
-      </div>
-      <div class="note">The Rule of Thirds table uses closed 4-hour regular-session candles aggregated from Yahoo Finance 60-minute data. The live chart is provided by TradingView and may move during market hours.</div>
-    </section>
-  </main>
-</body>
-</html>
-"""
+        )
+    if gocharting_url.strip():
+        lines.extend([f"GoCharting: {gocharting_url.strip()}", ""])
+    return "\n".join(lines)
 
 
-def render_placeholder_html() -> str:
-    return """<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NVDA 4H Rule of Thirds</title>
-  <style>
-    :root { --bg:#0d1117; --card:#161b22; --card-2:#0f141b; --border:#30363d; --text:#f0f6fc; --muted:#9fb0c3; }
-    * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; background:radial-gradient(circle at top,#172133 0,#0d1117 42%,#090c10 100%); color:var(--text); font-family:Arial,Helvetica,sans-serif; padding:40px 18px; }
-    .page { max-width:1120px; margin:0 auto; }
-    .card { background:rgba(22,27,34,.94); border:1px solid var(--border); border-radius:22px; padding:28px; box-shadow:0 24px 90px rgba(0,0,0,.35); margin-bottom:24px; }
-    h1 { font-size:clamp(34px,5vw,56px); line-height:1; margin:0 0 10px; }
-    h2 { margin:0 0 18px; font-size:24px; }
-    .sub { color:var(--muted); font-size:16px; margin-bottom:20px; }
-    .empty { background:var(--card-2); border:1px solid var(--border); border-radius:16px; padding:22px; color:var(--muted); line-height:1.5; }
-    .chart-wrap { height:720px; min-height:520px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#0b0f14; }
-    .note { color:var(--muted); font-size:14px; margin-top:12px; }
-  </style>
-</head>
-<body>
-  <main class="page">
-    <section class="card">
-      <h1>NVDA 4H Rule of Thirds</h1>
-      <div class="sub">NVIDIA stock 4-hour candles</div>
-      <div class="empty">No result yet. Run the GitHub Action once and this page will update automatically with the latest 4-hour result and the most recent 10 closed 4-hour candles.</div>
-    </section>
-    <section class="card">
-      <h2>Live NVDA 4H chart with EMA 9 / 20 / 50 / 200 and MACD</h2>
-      <div class="chart-wrap">
-        <div class="tradingview-widget-container" style="height:100%;width:100%">
-          <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
-          <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/symbols/NASDAQ-NVDA/" rel="noopener nofollow" target="_blank"><span class="blue-text">NVDA chart</span></a><span class="trademark"> by TradingView</span></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-          {
-            "autosize": true,
-            "symbol": "NASDAQ:NVDA",
-            "interval": "240",
-            "timezone": "America/New_York",
-            "theme": "dark",
-            "style": "1",
-            "locale": "en",
-            "backgroundColor": "rgba(13, 17, 23, 1)",
-            "gridColor": "rgba(48, 54, 61, 0.45)",
-            "withdateranges": true,
-            "allow_symbol_change": false,
-            "save_image": true,
-            "hide_side_toolbar": false,
-            "hide_top_toolbar": false,
-            "hide_legend": false,
-            "hide_volume": false,
-            "calendar": false,
-            "details": true,
-            "studies": [
-              { "id": "MAExp@tv-basicstudies", "inputs": { "length": 9 } },
-              { "id": "MAExp@tv-basicstudies", "inputs": { "length": 20 } },
-              { "id": "MAExp@tv-basicstudies", "inputs": { "length": 50 } },
-              { "id": "MAExp@tv-basicstudies", "inputs": { "length": 200 } },
-              { "id": "MACD@tv-basicstudies" }
-            ]
-          }
-          </script>
-        </div>
-      </div>
-      <div class="note">The Rule of Thirds table updates after the automation runs. The live chart is provided by TradingView.</div>
-    </section>
-  </main>
-</body>
-</html>
-"""
+def render_full_markdown(all_results: Dict[str, List[RuleResult]], generated_at: str) -> str:
+    lines = ["# NVDA Recent Rule of Thirds Results", "", f"Generated UTC: {generated_at}", ""]
+    for timeframe in ["15M", "30M", "1H", "4H"]:
+        results = list(reversed(all_results.get(timeframe, [])))
+        if not results:
+            continue
+        lines.extend([f"## {timeframe}", "", "| Open ET | Close ET | Low | High | Range | One Third | L1 | L2 / Middle | L3 / High Avg | Close |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"])
+        for r in results:
+            lines.append(
+                f"| {fmt_et(r.open_time_et)} | {fmt_et(r.close_time_et)} | {fmt_price(r.low)} | {fmt_price(r.high)} | {fmt_precise(r.range)} | {fmt_precise(r.one_third)} | {fmt_precise(r.level_1)} | {fmt_precise(r.level_2_middle)} | {fmt_precise(r.level_3_high_average)} | {fmt_price(r.close)} |"
+            )
+        lines.append("")
+    return "\n".join(lines)
+
+
+def write_placeholder_index() -> None:
+    Path("index.html").write_text(render_html({}, datetime.now(UTC).isoformat(), DEFAULT_GOCHARTING_URL), encoding="utf-8")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Calculate NVDA 4-hour Rule of Thirds levels.")
-    parser.add_argument("--symbol", default="NVDA", help="Stock ticker symbol, default NVDA")
-    parser.add_argument("--days", type=int, default=10, help="Number of closed 4-hour candles to display")
-    parser.add_argument("--chart-days", type=int, default=320, help="Number of 4-hour candles to export for chart_data.json")
-    args = parser.parse_args()
-
-    symbol = args.symbol.upper().strip()
-    display_symbol = symbol
-
-    raw = fetch_yahoo_hourly(symbol)
-    candles = aggregate_to_four_hour(raw)
-    closed = closed_candles(candles)
-    if len(closed) < args.days:
-        raise RuntimeError(f"Only found {len(closed)} closed 4-hour candles for {symbol}; need {args.days}.")
-
-    last_n_candles = closed[-args.days :]
-    rows = [calculate_row(c) for c in last_n_candles]
-    chart_candles = closed[-args.chart_days :]
-
-    generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    RESULTS_DIR.mkdir(exist_ok=True)
-
-    (RESULTS_DIR / "latest.md").write_text(render_latest_md(display_symbol, rows[-1], generated_at), encoding="utf-8")
-    (RESULTS_DIR / "last_10.md").write_text(render_last_n_md(display_symbol, rows), encoding="utf-8")
-    (RESULTS_DIR / "history.csv").write_text(render_history_csv(rows, generated_at), encoding="utf-8")
-    (RESULTS_DIR / "chart_data.json").write_text(json.dumps(build_chart_data(chart_candles), indent=2), encoding="utf-8")
-    INDEX_PATH.write_text(render_html(symbol, display_symbol, rows, generated_at), encoding="utf-8")
-
-    print(f"Updated {INDEX_PATH.name} and results for {display_symbol} 4H using {rows[-1].candle.source}.")
-    print(f"Latest closed 4H candle: {rows[-1].candle.label}")
-    print(f"Low: {fmt_price(rows[-1].candle.low)} | High: {fmt_price(rows[-1].candle.high)}")
-    print(f"Level 1: {fmt_price(rows[-1].level_1)}")
-    print(f"Level 2 / Middle: {fmt_price(rows[-1].level_2_middle)}")
-    print(f"Level 3 / High Average: {fmt_price(rows[-1].level_3_high_average)}")
+    args = parse_args()
+    symbol = args.symbol.upper()
+    if symbol != "NVDA":
+        print(f"Warning: this page is designed for NVDA, but received symbol {symbol}.")
+    try:
+        all_results = build_results(symbol, args.days, args.recent_candles)
+        write_outputs(all_results, args.gocharting_url)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 1
+    print("Updated NVDA multi-timeframe Rule of Thirds results.")
     return 0
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except Exception as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        raise SystemExit(1)
+    raise SystemExit(main())
