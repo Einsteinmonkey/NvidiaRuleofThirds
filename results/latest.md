@@ -1,39 +1,39 @@
 # NVDA Multi-Timeframe Rule of Thirds
 
-Generated UTC: 2026-07-17T22:46:12.559523+00:00
+Generated UTC: 2026-07-20T15:09:41.093326+00:00
 
 ## 15M
-Open ET: 2026-07-17 15:45 ET
-Close ET: 2026-07-17 16:00 ET
-Low: $202.58
-High: $203.82
-Range: $1.2400
-One third: $0.4133
-Level 1: $202.9933
-Level 2 / Middle: $203.4067
-Level 3 / High average: $203.8200
+Open ET: 2026-07-20 10:45 ET
+Close ET: 2026-07-20 11:00 ET
+Low: $204.58
+High: $205.89
+Range: $1.3099
+One third: $0.4366
+Level 1: $205.0167
+Level 2 / Middle: $205.4534
+Level 3 / High average: $205.8900
 
 ## 30M
-Open ET: 2026-07-17 15:30 ET
-Close ET: 2026-07-17 16:00 ET
-Low: $202.52
-High: $203.82
-Range: $1.3000
-One third: $0.4333
-Level 1: $202.9533
-Level 2 / Middle: $203.3867
-Level 3 / High average: $203.8200
+Open ET: 2026-07-20 10:30 ET
+Close ET: 2026-07-20 11:00 ET
+Low: $204.58
+High: $206.25
+Range: $1.6699
+One third: $0.5566
+Level 1: $205.1367
+Level 2 / Middle: $205.6934
+Level 3 / High average: $206.2500
 
 ## 1H
-Open ET: 2026-07-17 15:30 ET
-Close ET: 2026-07-17 16:30 ET
-Low: $202.52
-High: $203.82
-Range: $1.3000
-One third: $0.4333
-Level 1: $202.9533
-Level 2 / Middle: $203.3867
-Level 3 / High average: $203.8200
+Open ET: 2026-07-20 09:30 ET
+Close ET: 2026-07-20 10:30 ET
+Low: $204.66
+High: $207.74
+Range: $3.0800
+One third: $1.0267
+Level 1: $205.6867
+Level 2 / Middle: $206.7133
+Level 3 / High average: $207.7400
 
 ## 4H
 Open ET: 2026-07-17 13:30 ET
